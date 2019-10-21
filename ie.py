@@ -13,8 +13,12 @@ hearst_patterns = [
     ('(NP_\w+ (, )?such as (NP_\w+ ? (, )?(and |or )?)+)', 'before'),
     ('(such NP_\w+ (, )?as (NP_\w+ ?(, )?(and |or )?)+)', 'before'),
     ('(NP_\w+ (, )?include (NP_\w+ ?(, )?(and |or )?)+)', 'before'),
-    ('(NP_\w+ (, )?especially (NP_\w+ ?(, )?(and |or )?)+)', 'before')
+    ('(NP_\w+ (, )?especially (NP_\w+ ?(, )?(and |or )?)+)', 'before'),
 
+    ('(NP_\w+ (, )?except (NP_\w+ ? (, )?(and |or )?)+)', 'before'),
+    ('(NP_\w+ (, )?principally (NP_\w+ ? (, )?(and |or )?)+)', 'before'),
+    ('(NP_\w+ (, )?like (NP_\w+ ? (, )?(and |or )?)+)', 'before'),
+    ('(NP_\w+ (, )?particularly (NP_\w+ ? (, )?(and |or )?)+)', 'before')
 
 ]
 
@@ -38,7 +42,7 @@ def load_test(path):
     false_set = set()
     with open(path, "r") as f:
         for line in f:
-            print(line)
+            # print(line)
             hyponym = str(line.split("\t")[0]).strip()
             hypernym = str(line.split("\t")[1]).strip()
             status = str(line.split("\t")[2]).strip().lower()
@@ -53,21 +57,21 @@ def load_test(path):
 # Argument type: sentence, lemmatized - list of strings; parser - nltk.RegexpParser
 # Return type: string
 def chunk_lemmatized_sentence(sentence, lemmatized, parser):
-    print("Sentence: " + str(sentence))
-    print("Lemmatized: " + str(lemmatized))
+    # print("Sentence: " + str(sentence))
+    # print("Lemmatized: " + str(lemmatized))
     tagged_sen = nltk.pos_tag(sentence)
-    print("tagged_sen: " + str(tagged_sen))
+    # print("tagged_sen: " + str(tagged_sen))
     tag_list = [tag for _, tag in tagged_sen]
-    print("tag_list: " + str(tag_list))
+    # print("tag_list: " + str(tag_list))
     tagged_lemmatized = list(zip(lemmatized, tag_list))  # create list of list of tuples.
-    print("tag_lemma: " + str(tagged_lemmatized))
+    # print("tag_lemma: " + str(tagged_lemmatized))
     tree = parser.parse(tagged_lemmatized)
-    print("tree: " + str(tree))
-    # print(tree.draw())
+    # print("tree: " + str(tree))
+    # # print(tree.draw())
     chunks_list = tree_to_chunks(tree)
-    print("chunks_list: " + str(chunks_list))
+    # print("chunks_list: " + str(chunks_list))
     merged_chunks = merge_chunks(chunks_list)
-    print("merged chunks: " + merged_chunks)
+    # print("merged chunks: " + merged_chunks)
     return merged_chunks
 
 
@@ -78,20 +82,20 @@ def chunk_lemmatized_sentence(sentence, lemmatized, parser):
 def tree_to_chunks(tree):
     chunks = []
     for child in tree:
-        print("child: " + str(child))
+        # print("child: " + str(child))
         if not isinstance(child, nltk.Tree):
             token, _ = child
             chunks.append(token)
         else:
-            print("childs: " + str(child))
+            # print("childs: " + str(child))
             temp = []
             for token, tag in child:
                 # for token, tag in grand_child:
-                print("grand_child: " + str(token))
+                # print("grand_child: " + str(token))
                     # token, _ = grand_child
                 temp.append(token)
             # temp = [token for l in child.subtrees() for token, tag in l]
-            print("temp: " + str(temp))
+            # print("temp: " + str(temp))
             chunks.append("NP_" + str("_".join(temp)))
     return chunks
 
@@ -118,25 +122,27 @@ def merge_chunks(chunks):
 # Argument type: chunked_sentence - string
 # Yield type: tuple
 def extract_relations(chunked_sentence):
-    print("Chunked sentence: " + str(chunked_sentence))
+    # print("Chunked sentence: " + str(chunked_sentence))
     for pattern, position in hearst_patterns:
         res = re.search(pattern, chunked_sentence)
         if res:
-            print("Passed pattern: " + str(pattern))
+            # print("Passed pattern: " + str(pattern))
             match = res.group(0)
-            print("match: " + str(match))
+            # print("match: " + str(match))
             tokens_list = match.split(" ")
-            print("tokens_list: " + str(tokens_list))
-            NPs = [token for token in tokens_list if token.startswith("NP_")]
-            print("NPs: " + str(NPs))
+            # print("tokens_list: " + str(tokens_list))
+            NPs = [token.strip() for token in tokens_list if token.startswith("NP_")]
+            # print("NPs: " + str(NPs))
             temp = postprocess_NPs(NPs)
-            print("temp: " + str(temp))
+            # print("temp: " + str(temp))
             if position == 'before':
-                hypernym = temp[0].strip().lower()
-                hyponym = temp[1:].strip().lower()
+                hypernym = temp[0]
+                hyponym = temp[1:]
             if position == 'after':
-                hypernym = temp[-1].strip().lower()
-                hyponym = temp[:-1].strip.lower()
+                hypernym = temp[-1]
+                hyponym = temp[:-1]
+            # print("hypernym: " + str(hypernym))
+            # print("hyponym: " + str(hyponym))
             for x in hyponym:
                 yield x, hypernym
 
@@ -146,7 +152,7 @@ def extract_relations(chunked_sentence):
 # Argument type: list of strings
 # Return type: list of strings
 def postprocess_NPs(NPs):
-    t1 = [token.replace("NP_", "").lower() for token in NPs]
+    t1 = [token.strip().replace("NP_", "").lower() for token in NPs]
     result = []
     # s = ""
     for token in t1:
@@ -176,13 +182,17 @@ def evaluate_extractions(extractions, gold_true, gold_false):
                     fp = fp + 1
                     break
         flag = False
-
-    fn = len(gold_true) - len(extractions)
-
+    print("len extractions:" + str(len(extractions)))
+    print("len gold_true:" + str(len(gold_true)))
+    print("len gold_false:" + str(len(gold_false)))
+    print("tp:" + str(tp))
+    print("fp:" + str(fp))
+    #     print("len fp:" + str(len(fp)))
+    fn = len(gold_true - extractions)
+    print("fn:" + str(fn))
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
     f_measure = (2 * precision * recall) / (precision + recall)
-
     return precision, recall, f_measure
 
 
@@ -191,7 +201,7 @@ def main(args):
     test_path = args[1]
 
     wikipedia_corpus = load_corpus(corpus_path)
-    print(str(wikipedia_corpus[0]))
+    # print(str(wikipedia_corpus[0]))
     test_true, test_false = load_test(test_path)
 
     NP_chunker = nltk.RegexpParser(NP_grammar)
@@ -199,22 +209,22 @@ def main(args):
     # Complete the line (see Part 2 instructions)
     # call chunk_lemmatized_sentence() for each sentence and lemmatized list
     wikipedia_corpus = [chunk_lemmatized_sentence(lem_sen_tup[0], lem_sen_tup[1], NP_chunker) for lem_sen_tup in wikipedia_corpus]  #it's a list of strings.
-    print("Wikipedia Corpus: " + str(wikipedia_corpus[0]))
+    # print("Wikipedia Corpus: " + str(wikipedia_corpus[0]))
     # wikipedia_corpus = ["such NP_authors as NP_Herrick , NP_Goldsmith , and NP_Shakespeare"]
     extracted_pairs = set()
     for chunked_sentence in wikipedia_corpus:
         for pair in extract_relations(chunked_sentence):
             extracted_pairs.add(pair)
 
-    print("extracted_pairs: " + str(extracted_pairs))
+    # print("extracted_pairs: " + str(extracted_pairs))
 
     print('Precision: %f\nRecall:%f\nF-measure: %f' % evaluate_extractions(extracted_pairs, test_true, test_false))
 
 
 if __name__ == '__main__':
     # corpus = 'wikipedia_sentences.txt'
-    corpus = 'wiki_mini.txt'
-    test = 'test.tsv'
-    l = [corpus, test]
-    sys.exit(main(l))
-    # sys.exit(main(sys.argv[1:]))
+    # corpus = 'wiki_mini.txt'
+    # test = 'test.tsv'
+    # l = [corpus, test]
+    # sys.exit(main(l))
+    sys.exit(main(sys.argv[1:]))
